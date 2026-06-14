@@ -1,0 +1,61 @@
+candidate:
+  name: Elizabeth Weinlein
+  location: Los Angeles, CA
+  work_modes: [hybrid, remote]
+  salary_min: 80000
+  salary_max: 140000
+  clearance: Secret
+  degrees: [MPH, Bachelor]
+  years_experience: 6
+
+hard_nos:
+  keywords: [entry level, entry-level, sales, commission, "5 days", "five days", clearance required, mandarin required, DC required, "Washington DC", "Washington, DC"]
+  min_years_required: 8  # reject if JD requires more than this
+  excluded_locations: ["Washington, DC", "Washington DC"]
+
+buckets:
+  A:
+    name: "Climate x Public Health x Policy"
+    priority: 1
+    titles: [Program Officer, Program Manager, Policy Analyst, Research Manager, Senior Program Officer]
+    keywords: [climate, public health, environmental health, resilience, policy, grantmaking, foundation]
+    greenhouse_slugs: [nrdc, climateworks, edf]
+    lever_slugs: []
+  C:
+    name: "Resilience, Disaster & Climate Risk"
+    priority: 1
+    titles: [Emergency Management, Resilience Analyst, Climate Risk, Disaster Recovery, Emergency Preparedness]
+    keywords: [emergency management, disaster, resilience, climate risk, preparedness, continuity]
+    greenhouse_slugs: [icf, wittpbrien]
+    lever_slugs: []
+  D:
+    name: "Foundation Program Officer"
+    priority: 2
+    titles: [Program Officer, Program Associate, Senior Program Associate, Grants Manager]
+    keywords: [grantmaking, program officer, foundation, philanthropic, health equity]
+    greenhouse_slugs: []
+    lever_slugs: []
+  E:
+    name: "Cleared GovTech"
+    priority: 2
+    titles: [Federal Program Manager, Implementation Manager, Customer Success, Program Manager]
+    keywords: [federal, government, clearance, civic tech, public sector]
+    greenhouse_slugs: [navapbc, adhoc, codeforamerica]
+    lever_slugs: [navapbc]
+  F:
+    name: "Trust & Safety / Identity"
+    priority: 2
+    titles: [Trust and Safety, Identity Operations, Fraud Strategy, Compliance Manager, Policy Analyst]
+    keywords: [trust and safety, identity verification, fraud detection, compliance, identity adjudication]
+    greenhouse_slugs: [persona, plaid, stripe, coinbase, discord, snap]
+    lever_slugs: [persona, plaid]
+
+usajobs:
+  series: ["0343", "0301", "0967"]
+  remote_only: true
+  keyword: "program analyst"
+
+google_sheets:
+  spreadsheet_id: "1Lg5bPCWVF666dGKE3g7rw9m2fPee7Yoexr-rACaKFLk"
+  tracker_tab: "Tracker"
+  credentials_file: "credentials.json"

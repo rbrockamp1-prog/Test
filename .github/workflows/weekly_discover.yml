@@ -1,0 +1,64 @@
+name: Weekly Job Discovery
+
+on:
+  schedule:
+    # Every Sunday at 9:00 AM UTC
+    - cron: '0 9 * * 0'
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  discover:
+    name: Run Job Discovery Pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Decode Google credentials
+        # Only run if the secret is present
+        if: ${{ secrets.GOOGLE_CREDENTIALS_JSON != '' }}
+        run: |
+          echo "${{ secrets.GOOGLE_CREDENTIALS_JSON }}" | base64 --decode > credentials.json
+          echo "credentials.json written."
+
+      - name: Run discovery pipeline
+        env:
+          USAJOBS_EMAIL: ${{ secrets.USAJOBS_EMAIL }}
+          USAJOBS_API_KEY: ${{ secrets.USAJOBS_API_KEY }}
+        run: |
+          if [ "${{ inputs.debug }}" = "true" ]; then
+            export PYTHONPATH=.
+            python -c "import logging; logging.basicConfig(level=logging.DEBUG)" 2>/dev/null || true
+          fi
+          python discover.py
+
+      - name: Upload discovery CSV artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: discovered-jobs-${{ github.run_id }}
+          path: output/discovered_*.csv
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Clean up credentials
+        if: always()
+        run: |
+          rm -f credentials.json
+          echo "credentials.json removed."
