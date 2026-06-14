@@ -31,11 +31,15 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Decode Google credentials
-        # Only run if the secret is present
-        if: ${{ secrets.GOOGLE_CREDENTIALS_JSON != '' }}
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
         run: |
-          echo "${{ secrets.GOOGLE_CREDENTIALS_JSON }}" | base64 --decode > credentials.json
-          echo "credentials.json written."
+          if [ -n "$GOOGLE_CREDENTIALS_JSON" ]; then
+            echo "$GOOGLE_CREDENTIALS_JSON" | base64 --decode > credentials.json
+            echo "credentials.json written."
+          else
+            echo "No GOOGLE_CREDENTIALS_JSON secret set — skipping."
+          fi
 
       - name: Run discovery pipeline
         env:
