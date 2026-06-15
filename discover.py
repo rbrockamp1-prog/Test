@@ -36,6 +36,7 @@ CONFIG_PATH = Path(__file__).parent / "config" / "profile.yaml"
 OUTPUT_DIR = Path(__file__).parent / "output"
 SESSION_TIMEOUT = 10  # seconds for content fetches
 HEAD_TIMEOUT = 5       # seconds for URL liveness check
+MIN_FIT_SCORE = 6      # only surface roles scoring at or above this (quality over quantity)
 REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (compatible; JobDiscoveryBot/1.0; +https://github.com/elizabeth)"
@@ -128,7 +129,7 @@ class DiscoveredRole:
         return [
             self.posting.company,
             self.posting.title,
-            self.bucket_name,
+            self.bucket_key,
             self.resume,
             "To Apply",
             self.posting.url,
@@ -453,6 +454,16 @@ def check_hard_nos(posting: JobPosting, hard_nos: dict) -> tuple[bool, str]:
         if pat in title_lower:
             return False, f"generic talent-pool posting: {pat!r}"
 
+    # Filter technical / engineering titles — not roles Elizabeth targets
+    excluded_titles = [
+        "engineer", "developer", "architect", "full stack", "fullstack",
+        "frontend", "backend", "front end", "back end", "devops", "data scientist",
+        "machine learning", "software", "sre", "ios", "android", "designer",
+    ]
+    for pat in excluded_titles:
+        if pat in title_lower:
+            return False, f"technical/engineering title: {pat!r}"
+
     for kw in hard_nos.get("keywords", []):
         if kw.lower() in text:
             return False, f"hard-no keyword: {kw!r}"
@@ -552,6 +563,10 @@ def run_pipeline() -> None:
         bucket_key, bucket_name, matched_kw, score = check_keywords(posting, buckets)
         if bucket_key is None:
             log.debug("Check 2 failed (no keyword match): %s — %s", posting.company, posting.title)
+            continue
+        if score < MIN_FIT_SCORE:
+            log.debug("Check 2 failed (fit %d < %d): %s — %s",
+                      score, MIN_FIT_SCORE, posting.company, posting.title)
             continue
         check2_passed += 1
 
