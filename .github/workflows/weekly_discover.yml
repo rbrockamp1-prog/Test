@@ -35,7 +35,7 @@ jobs:
           GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
         run: |
           if [ -n "$GOOGLE_CREDENTIALS_JSON" ]; then
-            echo "$GOOGLE_CREDENTIALS_JSON" | base64 --decode > credentials.json
+            printf '%s' "$GOOGLE_CREDENTIALS_JSON" | base64 --decode > credentials.json
             echo "credentials.json written."
           else
             echo "No GOOGLE_CREDENTIALS_JSON secret set — skipping."

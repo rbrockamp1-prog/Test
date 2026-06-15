@@ -443,6 +443,16 @@ def check_hard_nos(posting: JobPosting, hard_nos: dict) -> tuple[bool, str]:
     """
     text = posting.searchable_text()
 
+    # Filter generic "resume drop" / talent pool postings — not real openings
+    junk_title_patterns = [
+        "resume drop", "resume drop off", "talent pool", "general application",
+        "future opportunities", "join our talent", "pipeline",
+    ]
+    title_lower = posting.title.lower()
+    for pat in junk_title_patterns:
+        if pat in title_lower:
+            return False, f"generic talent-pool posting: {pat!r}"
+
     for kw in hard_nos.get("keywords", []):
         if kw.lower() in text:
             return False, f"hard-no keyword: {kw!r}"
