@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import warnings
+import xml.etree.ElementTree as ET
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -482,6 +483,139 @@ def check_hard_nos(posting: JobPosting, hard_nos: dict) -> tuple[bool, str]:
 
 
 # ---------------------------------------------------------------------------
+# Source: 80,000 Hours job board (RSS)
+# ---------------------------------------------------------------------------
+
+def fetch_80k_hours() -> list[JobPosting]:
+    """Pull jobs from 80,000 Hours job board RSS feed."""
+    url = "https://jobs.80000hours.org/feed"
+    try:
+        resp = requests.get(url, headers=REQUEST_HEADERS, timeout=SESSION_TIMEOUT)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        log.warning("80k Hours RSS fetch failed: %s", exc)
+        return []
+
+    try:
+        root = ET.fromstring(resp.content)
+    except ET.ParseError as exc:
+        log.warning("80k Hours RSS parse error: %s", exc)
+        return []
+
+    ns = {"content": "http://purl.org/rss/1.0/modules/content/"}
+    postings: list[JobPosting] = []
+    channel = root.find("channel")
+    if channel is None:
+        return []
+
+    for item in channel.findall("item"):
+        title_el = item.find("title")
+        link_el = item.find("link")
+        desc_el = item.find("description")
+        content_el = item.find("content:encoded", ns)
+
+        title = title_el.text.strip() if title_el is not None and title_el.text else ""
+        link = link_el.text.strip() if link_el is not None and link_el.text else ""
+        raw_content = ""
+        if content_el is not None and content_el.text:
+            raw_content = content_el.text
+        elif desc_el is not None and desc_el.text:
+            raw_content = desc_el.text
+        content = re.sub(r"<[^>]+>", " ", raw_content).strip()
+
+        # Extract company from title — format is usually "Role at Company"
+        company = "Unknown"
+        if " at " in title:
+            parts = title.split(" at ", 1)
+            title = parts[0].strip()
+            company = parts[1].strip()
+
+        if title and link:
+            postings.append(
+                JobPosting(
+                    company=company,
+                    title=title,
+                    url=link,
+                    location="",
+                    content=content,
+                    source="80k_hours",
+                )
+            )
+
+    log.info("80k Hours RSS: %d postings fetched", len(postings))
+    return postings
+
+
+# ---------------------------------------------------------------------------
+# Source: Idealist (public API)
+# ---------------------------------------------------------------------------
+
+def fetch_idealist(keywords: list[str]) -> list[JobPosting]:
+    """Search Idealist for nonprofit/NGO jobs matching Elizabeth's keywords."""
+    base_url = "https://www.idealist.org/api/v1/listings"
+    postings: list[JobPosting] = []
+    seen_ids: set[str] = set()
+
+    # Search a few high-signal terms
+    search_terms = keywords[:4]  # limit to avoid rate limits
+
+    for term in search_terms:
+        params = {
+            "q": term,
+            "type": "JOB",
+            "pageSize": 25,
+            "page": 1,
+        }
+        try:
+            resp = requests.get(
+                base_url,
+                headers={**REQUEST_HEADERS, "Accept": "application/json"},
+                params=params,
+                timeout=SESSION_TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except (requests.RequestException, ValueError) as exc:
+            log.warning("Idealist fetch failed for term %r: %s", term, exc)
+            continue
+
+        items = data.get("results", data.get("items", data.get("data", [])))
+        if not isinstance(items, list):
+            continue
+
+        for job in items:
+            job_id = str(job.get("id", ""))
+            if job_id in seen_ids:
+                continue
+            seen_ids.add(job_id)
+
+            title = job.get("title", job.get("name", ""))
+            org = job.get("organization", {})
+            company = org.get("name", "") if isinstance(org, dict) else str(org)
+            job_url = job.get("url", job.get("applicationUrl", ""))
+            if not job_url and job_id:
+                job_url = f"https://www.idealist.org/en/job/{job_id}"
+            location = job.get("locationType", "") or job.get("city", "")
+            description = job.get("description", "") or ""
+            description = re.sub(r"<[^>]+>", " ", description)
+
+            if title:
+                postings.append(
+                    JobPosting(
+                        company=company or "Nonprofit",
+                        title=title,
+                        url=job_url,
+                        location=location,
+                        content=description,
+                        source="idealist",
+                    )
+                )
+
+    log.info("Idealist: %d postings fetched", len(postings))
+    return postings
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -511,7 +645,7 @@ def run_pipeline() -> None:
     # -----------------------------------------------------------------------
     log.info("=== Fetching from Greenhouse ===")
     all_postings: list[JobPosting] = []
-    source_counts: dict[str, int] = {"greenhouse": 0, "lever": 0, "usajobs": 0}
+    source_counts: dict[str, int] = {"greenhouse": 0, "lever": 0, "usajobs": 0, "80k_hours": 0, "idealist": 0}
 
     for slug in greenhouse_slug_to_buckets:
         fetched = fetch_greenhouse(slug)
@@ -529,11 +663,27 @@ def run_pipeline() -> None:
     source_counts["usajobs"] += len(usa_postings)
     all_postings.extend(usa_postings)
 
+    log.info("=== Fetching from 80,000 Hours ===")
+    eighty_k_postings = fetch_80k_hours()
+    source_counts["80k_hours"] = len(eighty_k_postings)
+    all_postings.extend(eighty_k_postings)
+
+    log.info("=== Fetching from Idealist ===")
+    # Gather unique keywords across all buckets for Idealist search
+    all_keywords: list[str] = []
+    for bucket in buckets.values():
+        all_keywords.extend(bucket.get("keywords", [])[:2])
+    idealist_postings = fetch_idealist(list(dict.fromkeys(all_keywords)))
+    source_counts["idealist"] = len(idealist_postings)
+    all_postings.extend(idealist_postings)
+
     log.info(
-        "Total fetched — Greenhouse: %d, Lever: %d, USAJobs: %d",
+        "Total fetched — Greenhouse: %d, Lever: %d, USAJobs: %d, 80k Hours: %d, Idealist: %d",
         source_counts["greenhouse"],
         source_counts["lever"],
         source_counts["usajobs"],
+        source_counts["80k_hours"],
+        source_counts["idealist"],
     )
 
     # -----------------------------------------------------------------------
@@ -628,7 +778,9 @@ def run_pipeline() -> None:
     print("DISCOVERY SUMMARY")
     print("=" * 60)
     print(f"Roles pulled — Greenhouse: {source_counts['greenhouse']}, "
-          f"Lever: {source_counts['lever']}, USAJobs: {source_counts['usajobs']}")
+          f"Lever: {source_counts['lever']}, USAJobs: {source_counts['usajobs']}, "
+          f"80k Hours: {source_counts.get('80k_hours', 0)}, "
+          f"Idealist: {source_counts.get('idealist', 0)}")
     print(f"Unique postings evaluated: {len(seen)}")
     print(f"Passed Check 1 (URL live):        {check1_passed}")
     print(f"Passed Check 2 (keyword match):   {check2_passed}")
