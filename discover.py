@@ -37,7 +37,7 @@ CONFIG_PATH = Path(__file__).parent / "config" / "profile.yaml"
 OUTPUT_DIR = Path(__file__).parent / "output"
 SESSION_TIMEOUT = 10  # seconds for content fetches
 HEAD_TIMEOUT = 5       # seconds for URL liveness check
-MIN_FIT_SCORE = 6      # only surface roles scoring at or above this (quality over quantity)
+MIN_FIT_SCORE = 7      # only surface roles scoring at or above this (quality over quantity)
 REQUEST_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (compatible; JobDiscoveryBot/1.0; +https://github.com/elizabeth)"
@@ -463,6 +463,9 @@ def check_hard_nos(posting: JobPosting, hard_nos: dict) -> tuple[bool, str]:
         "engineer", "developer", "architect", "full stack", "fullstack",
         "frontend", "backend", "front end", "back end", "devops", "data scientist",
         "machine learning", "software", "sre", "ios", "android", "designer",
+        "data analyst", "data engineer", "data platform", "infrastructure",
+        "security engineer", "site reliability", "product security",
+        "quantitative", "research scientist", "applied scientist",
     ]
     for pat in excluded_titles:
         if pat in title_lower:

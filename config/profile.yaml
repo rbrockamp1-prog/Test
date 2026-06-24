@@ -47,7 +47,7 @@ buckets:
     priority: 2
     titles: [Trust and Safety, Identity Operations, Fraud Strategy, Compliance Manager, Policy Analyst]
     keywords: [trust and safety, identity verification, fraud detection, compliance, identity adjudication]
-    greenhouse_slugs: [stripe, coinbase, discord]
+    greenhouse_slugs: [coinbase]
     lever_slugs: []
 
 usajobs:
