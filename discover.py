@@ -259,8 +259,9 @@ def fetch_usajobs(cfg: dict) -> list[JobPosting]:
 
     usa_cfg = cfg.get("usajobs", {})
     series_list = usa_cfg.get("series", [])
-    keyword = usa_cfg.get("keyword", "program analyst")
-    remote_only = usa_cfg.get("remote_only", True)
+    keyword = usa_cfg.get("keyword", "program manager")
+    remote_only = usa_cfg.get("remote_only", False)
+    location = usa_cfg.get("location", "")
 
     headers = {
         "Host": "data.usajobs.gov",
@@ -279,6 +280,8 @@ def fetch_usajobs(cfg: dict) -> list[JobPosting]:
         }
         if remote_only:
             params["RemoteIndicator"] = "True"
+        if location:
+            params["LocationName"] = location
 
         page = 1
         while True:
@@ -488,12 +491,24 @@ def check_hard_nos(posting: JobPosting, hard_nos: dict) -> tuple[bool, str]:
 
 def fetch_80k_hours() -> list[JobPosting]:
     """Pull jobs from 80,000 Hours job board RSS feed."""
-    url = "https://jobs.80000hours.org/feed"
-    try:
-        resp = requests.get(url, headers=REQUEST_HEADERS, timeout=SESSION_TIMEOUT)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        log.warning("80k Hours RSS fetch failed: %s", exc)
+    # Try multiple known URL patterns
+    urls_to_try = [
+        "https://jobs.80000hours.org/?feed=rss2",
+        "https://jobs.80000hours.org/feed/",
+        "https://jobs.80000hours.org/rss/",
+    ]
+    resp = None
+    for url in urls_to_try:
+        try:
+            r = requests.get(url, headers=REQUEST_HEADERS, timeout=SESSION_TIMEOUT)
+            if r.status_code == 200:
+                resp = r
+                break
+        except requests.RequestException:
+            continue
+
+    if resp is None:
+        log.warning("80k Hours RSS: all URL patterns failed")
         return []
 
     try:
@@ -523,7 +538,6 @@ def fetch_80k_hours() -> list[JobPosting]:
             raw_content = desc_el.text
         content = re.sub(r"<[^>]+>", " ", raw_content).strip()
 
-        # Extract company from title — format is usually "Role at Company"
         company = "Unknown"
         if " at " in title:
             parts = title.split(" at ", 1)
@@ -552,7 +566,7 @@ def fetch_80k_hours() -> list[JobPosting]:
 
 def fetch_idealist(keywords: list[str]) -> list[JobPosting]:
     """Search Idealist for nonprofit/NGO jobs matching Elizabeth's keywords."""
-    base_url = "https://www.idealist.org/api/v1/listings"
+    base_url = "https://www.idealist.org/api/v0.1/actions/search"
     postings: list[JobPosting] = []
     seen_ids: set[str] = set()
 
@@ -563,8 +577,8 @@ def fetch_idealist(keywords: list[str]) -> list[JobPosting]:
         params = {
             "q": term,
             "type": "JOB",
-            "pageSize": 25,
-            "page": 1,
+            "numResults": 25,
+            "page": 0,
         }
         try:
             resp = requests.get(
@@ -579,7 +593,7 @@ def fetch_idealist(keywords: list[str]) -> list[JobPosting]:
             log.warning("Idealist fetch failed for term %r: %s", term, exc)
             continue
 
-        items = data.get("results", data.get("items", data.get("data", [])))
+        items = data.get("results", data.get("hits", data.get("items", data.get("data", []))))
         if not isinstance(items, list):
             continue
 

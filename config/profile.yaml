@@ -19,15 +19,15 @@ buckets:
     priority: 1
     titles: [Program Officer, Program Manager, Policy Analyst, Research Manager, Senior Program Officer]
     keywords: [climate, public health, environmental health, resilience, policy, grantmaking, foundation]
-    greenhouse_slugs: [nrdc, climateworks, edf]
-    lever_slugs: []
+    greenhouse_slugs: []
+    lever_slugs: [nrdc, edf, climatepower]
   C:
     name: "Resilience, Disaster & Climate Risk"
     priority: 1
     titles: [Emergency Management, Resilience Analyst, Climate Risk, Disaster Recovery, Emergency Preparedness]
     keywords: [emergency management, disaster, resilience, climate risk, preparedness, continuity]
-    greenhouse_slugs: [icf, wittpbrien]
-    lever_slugs: []
+    greenhouse_slugs: []
+    lever_slugs: [icf]
   D:
     name: "Foundation Program Officer"
     priority: 2
@@ -40,20 +40,21 @@ buckets:
     priority: 2
     titles: [Federal Program Manager, Implementation Manager, Customer Success, Program Manager]
     keywords: [federal, government, clearance, civic tech, public sector]
-    greenhouse_slugs: [navapbc, adhoc, codeforamerica]
-    lever_slugs: [navapbc]
+    greenhouse_slugs: [navapbc, codeforamerica]
+    lever_slugs: []
   F:
     name: "Trust & Safety / Identity"
     priority: 2
     titles: [Trust and Safety, Identity Operations, Fraud Strategy, Compliance Manager, Policy Analyst]
     keywords: [trust and safety, identity verification, fraud detection, compliance, identity adjudication]
-    greenhouse_slugs: [persona, plaid, stripe, coinbase, discord, snap]
-    lever_slugs: [persona, plaid]
+    greenhouse_slugs: [stripe, coinbase, discord]
+    lever_slugs: []
 
 usajobs:
-  series: ["0343", "0301", "0967"]
-  remote_only: true
-  keyword: "program analyst"
+  series: ["0343", "0301", "0340", "0685", "0690"]
+  remote_only: false
+  location: "Los Angeles, CA"
+  keyword: "program manager"
 
 google_sheets:
   spreadsheet_id: "1Lg5bPCWVF666dGKE3g7rw9m2fPee7Yoexr-rACaKFLk"
