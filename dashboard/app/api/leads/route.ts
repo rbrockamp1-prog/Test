@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLeads } from "@/lib/sheets";
 
-export const revalidate = 300; // cache 5 min
+export const revalidate = 0; // no cache — always fresh
 
 export async function GET() {
   try {
