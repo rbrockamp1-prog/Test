@@ -215,7 +215,7 @@ button{font-family:inherit}
 
 <script>
 "use strict";
-const KEY="hb_budget_v1";
+const KEY="hb_budget_v2";
 const $=s=>document.querySelector(s);
 const fmt=n=>(n<0?"-":"")+"$"+Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:0});
 const fmt2=n=>"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -227,15 +227,92 @@ const DEFAULT_CATS=["Rent/Mortgage","Groceries","Dining","Transport","Utilities"
   "Entertainment","Shopping","Health","Subscriptions","Kids","Other"];
 
 function seed(){
-  return {version:1,
+  return {version:2,
     people:{you:"You",partner:"Partner"},
     categories:DEFAULT_CATS.map(name=>({name,budget:0})),
     funds:[],
     transactions:[],
     rules:{}};
 }
+// Demo dataset — a realistic month for a two-income couple. Loaded on first
+// run so there's something to look at; "Erase all data" resets to empty seed().
+function buildDemo(){
+  const T=(date,amount,category,who,note,type)=>({id:uid(),date,amount,category,who,note,type:type||"expense"});
+  const cats=[["Rent/Mortgage",2100],["Groceries",700],["Dining",350],["Transport",250],
+    ["Utilities",320],["Entertainment",180],["Shopping",300],["Health",150],
+    ["Subscriptions",80],["Kids",400],["Other",200]];
+  const tx=[
+    T("2026-07-01",3200,"Other","you","Payroll — You","income"),
+    T("2026-07-01",2850,"Other","partner","Payroll — Partner","income"),
+    T("2026-07-15",3200,"Other","you","Payroll — You","income"),
+    T("2026-07-15",2850,"Other","partner","Payroll — Partner","income"),
+    T("2026-07-01",2100,"Rent/Mortgage","joint","Mortgage payment"),
+    T("2026-07-01",320,"Kids","joint","Daycare"),
+    T("2026-07-01",60,"Transport","joint","Transit pass"),
+    T("2026-07-01",45,"Health","joint","Gym membership"),
+    T("2026-07-02",46.10,"Transport","you","Shell Gas Station"),
+    T("2026-07-03",128.44,"Groceries","joint","Whole Foods Market"),
+    T("2026-07-03",15.49,"Subscriptions","joint","Netflix"),
+    T("2026-07-05",58,"Dining","you","Corner Bistro"),
+    T("2026-07-05",11.99,"Subscriptions","joint","Spotify"),
+    T("2026-07-05",2.99,"Subscriptions","joint","iCloud storage"),
+    T("2026-07-06",214.90,"Groceries","partner","Costco Wholesale"),
+    T("2026-07-06",138.40,"Utilities","joint","City Water & Power"),
+    T("2026-07-07",13.99,"Subscriptions","joint","Disney+"),
+    T("2026-07-08",79.99,"Utilities","joint","Internet"),
+    T("2026-07-08",37.99,"Shopping","partner","Amazon"),
+    T("2026-07-09",18.60,"Transport","partner","Uber trip"),
+    T("2026-07-10",24,"Health","you","Pharmacy Rx"),
+    T("2026-07-11",42.75,"Dining","joint","Thai Place"),
+    T("2026-07-12",44.10,"Utilities","joint","Gas bill"),
+    T("2026-07-12",38,"Entertainment","joint","Movie tickets"),
+    T("2026-07-13",76.12,"Groceries","you","Trader Joe's"),
+    T("2026-07-14",84.25,"Shopping","joint","Target"),
+    T("2026-07-15",90,"Utilities","joint","Phone bill"),
+    T("2026-07-15",45,"Other","you","Birthday gift"),
+    T("2026-07-16",58,"Kids","partner","Kids clothes"),
+    T("2026-07-17",30,"Health","partner","Doctor copay"),
+    T("2026-07-18",31.20,"Dining","partner","Pizza night"),
+    T("2026-07-19",51.30,"Transport","you","Chevron Gas"),
+    T("2026-07-20",94.30,"Groceries","joint","Safeway"),
+    T("2026-07-21",52.10,"Shopping","you","Amazon"),
+    T("2026-07-22",120,"Entertainment","joint","Concert tickets"),
+    T("2026-07-23",28.50,"Other","joint","Household misc"),
+    T("2026-07-25",88.40,"Dining","joint","Sushi dinner"),
+    T("2026-07-27",66.50,"Groceries","partner","Whole Foods Market"),
+    T("2026-06-01",3200,"Other","you","Payroll — You","income"),
+    T("2026-06-01",2850,"Other","partner","Payroll — Partner","income"),
+    T("2026-06-15",3200,"Other","you","Payroll — You","income"),
+    T("2026-06-15",2850,"Other","partner","Payroll — Partner","income"),
+    T("2026-06-01",2100,"Rent/Mortgage","joint","Mortgage payment"),
+    T("2026-06-01",320,"Kids","joint","Daycare"),
+    T("2026-06-04",142.18,"Groceries","joint","Whole Foods Market"),
+    T("2026-06-07",63.40,"Dining","you","Ramen House"),
+    T("2026-06-09",132.90,"Utilities","joint","City Water & Power"),
+    T("2026-06-12",198.75,"Groceries","partner","Costco Wholesale"),
+    T("2026-06-14",41.00,"Transport","you","Shell Gas Station"),
+    T("2026-06-18",75.60,"Shopping","joint","Target"),
+    T("2026-06-21",120,"Entertainment","joint","Ball game"),
+    T("2026-06-26",54.20,"Dining","partner","Tacos")
+  ];
+  return {version:2,
+    people:{you:"You",partner:"Partner"},
+    categories:cats.map(([name,budget])=>({name,budget})),
+    funds:[
+      {name:"Summer vacation",target:3000,saved:1650,monthly:250},
+      {name:"Car registration",target:480,saved:280,monthly:40},
+      {name:"Holiday gifts",target:1200,saved:400,monthly:100},
+      {name:"Car maintenance",target:900,saved:525,monthly:75}
+    ],
+    transactions:tx,
+    rules:{"whole foods market":"Groceries","costco wholesale":"Groceries","trader joe's":"Groceries",
+      "safeway":"Groceries","netflix":"Subscriptions","spotify":"Subscriptions","disney+":"Subscriptions",
+      "shell gas station":"Transport","chevron gas":"Transport","uber trip":"Transport",
+      "target":"Shopping","amazon":"Shopping","pharmacy rx":"Health"}};
+}
 let data=load();
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY));return d&&d.version?d:seed();}catch(e){return seed();}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.version)return d;}catch(e){}
+  const demo=buildDemo();localStorage.setItem(KEY,JSON.stringify(demo));return demo;}
 function save(){localStorage.setItem(KEY,JSON.stringify(data));}
 
 let cur=new Date(); cur.setDate(1);
@@ -582,7 +659,7 @@ function menuDialog(){
   $("#m_file").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
     r.onload=()=>{try{const d=JSON.parse(r.result);if(d&&d.version){data=d;save();closeDialog();render();}else alert("Not a valid backup file.");}catch(_){alert("Couldn't read that file.");}};
     r.readAsText(f);};
-  $("#m_reset").onclick=()=>{if(confirm("Erase ALL budget data on this device? This cannot be undone.")){localStorage.removeItem(KEY);data=seed();closeDialog();render();}};
+  $("#m_reset").onclick=()=>{if(confirm("Erase ALL budget data on this device? This cannot be undone.")){data=seed();save();closeDialog();render();}};
 }
 
 /* ---------- wire up ---------- */
