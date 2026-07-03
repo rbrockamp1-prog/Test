@@ -380,11 +380,12 @@ function renderBars(){
   const max=Math.max(1,...rows.map(r=>r[1]));
   if(!rows.length){$("#bars").innerHTML=`<div class="empty">No spending recorded for this month yet.</div>`;return;}
   $("#bars").innerHTML=rows.map(([cat,amt])=>
-    `<div class="bar-row" title="${cat}: ${fmt2(amt)}">
+    `<div class="bar-row" data-cat="${cat}" style="cursor:pointer" title="${cat}: ${fmt2(amt)} — tap for line items">
        <span class="cat">${cat}</span>
        <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2,amt/max*100)}%"></div></div>
        <span class="amt">${fmt(amt)}</span>
      </div>`).join("");
+  $("#bars").querySelectorAll("[data-cat]").forEach(el=>el.onclick=()=>categoryDialog(el.dataset.cat));
 }
 function renderBudgets(){
   const m=spentByCat();
@@ -395,13 +396,15 @@ function renderBudgets(){
     const pct=budget?Math.min(100,spent/budget*100):0;
     const cls=!budget?"":spent>budget?"crit":spent>=budget*0.8?"warn":"";
     const rem=budget-spent;
-    return `<div class="card">
-      <h3>${c.name}</h3>
+    return `<div class="card" data-cat="${c.name}" style="cursor:pointer">
+      <h3 style="display:flex;align-items:center">${c.name}
+        <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;margin-left:auto;opacity:.45"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4L13.2 12z"/></svg></h3>
       <div class="rowline"><span><b>${fmt(spent)}</b></span><span>${budget?"of "+fmt(budget):"no budget"}</span></div>
       <div class="meter ${cls}"><span style="width:${pct}%"></span></div>
       <div class="rowline"><span>${budget?(rem>=0?fmt(rem)+" left":fmt(-rem)+" over"):""}</span></div>
     </div>`;
   }).join("");
+  $("#budgetCards").querySelectorAll("[data-cat]").forEach(el=>el.onclick=()=>categoryDialog(el.dataset.cat));
 }
 function renderFunds(){
   if(!data.funds.length){$("#fundCards").innerHTML=`<div class="empty">No sinking funds yet.</div>`;return;}
@@ -445,8 +448,8 @@ $("#scrim").onclick=e=>{if(e.target===$("#scrim"))closeDialog();};
 
 function catOptions(sel){return data.categories.map(c=>`<option ${c.name===sel?"selected":""}>${c.name}</option>`).join("");}
 
-function txDialog(id){
-  const t=id?data.transactions.find(x=>x.id===id):{date:todayISO(),amount:"",category:data.categories[0].name,who:"joint",note:"",type:"expense"};
+function txDialog(id,presetCat){
+  const t=id?data.transactions.find(x=>x.id===id):{date:todayISO(),amount:"",category:presetCat||data.categories[0].name,who:"joint",note:"",type:"expense"};
   openDialog(`
     <h2>${id?"Edit":"Add"} transaction</h2>
     <div class="seg" id="ttype" style="width:100%">
@@ -487,6 +490,36 @@ function txDialog(id){
   };
 }
 function segSet(sel,btn){$(sel).querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b===btn));}
+
+function categoryDialog(cat){
+  const nameOf=w=>w==="you"?data.people.you:w==="partner"?data.people.partner:"Joint";
+  const list=monthTx().filter(t=>t.category===cat).sort((a,b)=>b.date.localeCompare(a.date));
+  const c=data.categories.find(x=>x.name===cat)||{budget:0};
+  const budget=+c.budget||0;
+  const spent=list.filter(t=>t.type!=="income").reduce((s,t)=>s+t.amount,0);
+  const scope=who==="all"?"":` · ${who==="joint"?"Joint":nameOf(who)} only`;
+  const rows=list.length?list.map(t=>`
+    <div class="tx" data-edit="${t.id}" style="cursor:pointer">
+      <div class="av">${(t.note||t.category||"?").slice(0,1).toUpperCase()}</div>
+      <div class="main"><div class="t1">${t.note||t.category}</div>
+        <div class="t2">${t.date} · ${nameOf(t.who)}</div></div>
+      <div class="amt ${t.type==="income"?"inc":""}">${t.type==="income"?"+":""}${fmt(t.amount)}</div>
+    </div>`).join(""):`<div class="empty">No line items in ${cat} this month.</div>`;
+  openDialog(`
+    <h2>${cat}</h2>
+    <div class="rowline" style="margin:-8px 0 12px">
+      <span><b>${fmt(spent)}</b> spent${budget?" of "+fmt(budget):""}${scope}</span>
+      <span>${budget?(budget-spent>=0?fmt(budget-spent)+" left":fmt(spent-budget)+" over"):""}</span></div>
+    <div style="max-height:52vh;overflow:auto;margin:0 -4px">${rows}</div>
+    <div class="dialog-actions">
+      <button class="btn tonal" id="c_add">Add to ${cat}</button>
+      <div style="flex:1"></div>
+      <button class="btn text" id="c_close">Close</button>
+    </div>`);
+  $("#c_close").onclick=closeDialog;
+  $("#c_add").onclick=()=>txDialog(null,cat);
+  $("#dialog").querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>txDialog(el.dataset.edit,cat));
+}
 
 function fundDialog(i){
   const f=i>=0?data.funds[i]:{name:"",target:"",saved:0,monthly:""};
